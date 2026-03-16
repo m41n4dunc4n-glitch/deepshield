@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+<title>Account</title>
+<link rel="stylesheet" href="/static/css/style.css">
+
+</head>
+
+<body>
+
+<nav class="navbar">
+
+<h1 class="logo">DeepShield</h1>
+
+<div class="menu">
+<a href="/dashboard">Dashboard</a>
+<a href="/analyze">Analyze</a>
+<a href="/account">Account</a>
+<a href="/logout">Logout</a>
+</div>
+
+</nav>
+
+
+<!-- PROFILE -->
+
+<div class="account-profile">
+
+<div class="avatar">
+
+{% if gender == "male" %}
+
+<img src="{{ url_for('static', filename='images/male_ava.png') }}">
+
+{% else %}
+
+<img src="{{ url_for('static', filename='images/' + avatar) }}">
+{% endif %}
+
+</div>
+
+<div class="profile-info">
+<p>{{name}} | {{gender}}</p>
+<p>DeepShield User</p>
+</div>
+
+</div>
+
+
+<!-- SCAN STATS -->
+
+<div class="stats">
+
+<div class="stat-box">
+<h3>Total Scans</h3>
+<p>{{ uploads|length }}</p>
+</div>
+
+<div class="stat-box fake-stat">
+<h3>Fake Detected</h3>
+<p>{{ uploads | selectattr(3,'equalto','Fake') | list | length }}</p>
+</div>
+
+<div class="stat-box real-stat">
+<h3>Real Media</h3>
+<p>{{ uploads | selectattr(3,'equalto','Real') | list | length }}</p>
+</div>
+
+<div class="stat-box suspicious-stat">
+<h3>Suspicious Media</h3>
+<p>{{ uploads | selectattr(3,'equalto','Suspicious') | list | length }}</p>
+</div>
+
+</div>
+
+
+
+<!-- HISTORY TABLE -->
+
+<section class="history-container">
+
+<h2>Detection History</h2>
+
+<table class="history-table">
+
+<thead>
+
+<tr>
+<th>File</th>
+<th>Type</th>
+<th>Media</th>
+<th>Result</th>
+<th>Confidence</th>
+<th>Date</th>
+<th>Action</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for u in uploads %}
+
+<tr>
+
+<td>{{u[0]}}</td>
+
+<td>{{u[1]}}</td>
+
+<td>{{u[2]}}</td>
+
+<td class="
+{% if u[3] == 'Fake' %}fake
+{% elif u[3] == 'Real' %}real
+{% else %}suspicious
+{% endif %}
+">
+
+{{u[3]}}
+
+</td>
+
+<td>{{u[4]}}%</td>
+
+<td>{{u[5]}}</td>
+
+<td>
+
+<button class="delete-btn" data-id="{{u[0]}}">
+Delete
+</button>
+
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</section>
+
+<script src="/static/js/account.js"></script>
+<script src="/static/js/matrix.js"></script>
+
+</body>
+</html>

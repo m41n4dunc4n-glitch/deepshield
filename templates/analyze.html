@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Analyze</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<script src="/static/js/analyze.js" defer></script>
+
+</head>
+
+<body>
+
+<nav class="navbar">
+
+<h1 class="logo">DeepShield</h1>
+
+<div class="menu">
+<a href="/dashboard">Dashboard</a>
+<a href="/analyze">Analyze</a>
+<a href="/account">Account</a>
+<a href="/logout">Logout</a>
+</div>
+
+</nav>
+
+
+<section class="analyzer">
+
+<div class="media-tabs">
+
+<button onclick="selectType('image')" class="tab">Image</button>
+<button onclick="selectType('video')" class="tab">Video</button>
+<button onclick="selectType('audio')" class="tab">Audio</button>
+<button onclick="selectType('text')" class="tab">Text</button>
+
+</div>
+
+
+<div class="analyze-grid">
+
+
+<!-- UPLOAD PANEL -->
+
+<div class="upload-box" id="drop">
+
+<div id="preview"></div>
+
+<div id="heatmap"></div>
+
+<p id="upload-message">
+Drag & Drop Image<br>
+or Click to Upload
+</p>
+
+<p id="formats">(.jpg .jpeg .png)</p>
+
+<input type="file" id="file">
+
+<div id="text-mode" style="display:none">
+
+<input type="file" id="textfile">
+
+<textarea id="textinput" placeholder="Paste or type text here"></textarea>
+
+</div>
+
+</div>
+
+
+<!-- RESULT PANEL -->
+
+<div class="result-panel">
+
+<h3>Detection Result</h3>
+
+<div class="status-box">
+<p id="status">Waiting for analysis</p>
+</div>
+
+<button onclick="analyze()" class="analyze-btn">Analyze</button>
+
+<div class="result-bar">
+<div id="bar"></div>
+</div>
+
+<p id="label" class="result-label"></p>
+
+</div>
+
+
+</div>
+
+</section>
+
+<script src="/static/js/matrix.js"></script>
+
+</body>
+</html>

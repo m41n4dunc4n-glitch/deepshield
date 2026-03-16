@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Create Account</title>
+
+<link rel="stylesheet" href="/static/css/style.css">
+
+</head>
+
+<body>
+
+<nav>
+
+<div>DeepShield</div>
+
+<div>
+<a href="/dashboard">Dashboard</a>
+<a href="/analyze">Analyze</a>
+<a href="/account">Account</a>
+</div>
+
+</nav>
+
+<div class="auth-box">
+
+<h1>DeepShield</h1>
+
+<h3>Create Secure Account</h3>
+
+<form method="POST" action="/signup">
+
+<input name="name" placeholder="Name" required>
+
+<input name="email" placeholder="Email" required>
+
+<input name="phone" placeholder="Phone Number" required>
+
+<select name="gender" required>
+
+<option value="">Select Gender</option>
+<option value="Male">Male</option>
+<option value="Female">Female</option>
+
+</select>
+
+<input name="password" type="password" placeholder="6 Digit Password" pattern="[0-9]{6}" maxlength="6" required>
+
+<button class="auth-btn">SIGN UP</button>
+
+</form>
+
+<p class="auth-switch">
+
+Already have an account?
+
+<a href="/login">Login</a>
+
+</p>
+
+</div>
+
+<script src="/static/js/matrix.js"></script>
+
+</body>
+</html>

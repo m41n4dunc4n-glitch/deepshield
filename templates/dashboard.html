@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Dashboard</title>
+<link rel="stylesheet" href="/static/css/style.css">
+
+</head>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<body>
+
+<nav class="navbar">
+
+<h1 class="logo">DeepShield</h1>
+
+<div class="menu">
+<a href="/dashboard">Dashboard</a>
+<a href="/analyze">Analyze</a>
+<a href="/account">Account</a>
+<a href="/logout">Logout</a>
+</div>
+
+</nav>
+
+<div class="welcome-container">
+
+<img src="/static/images/{{avatar}}" class="avatar">
+
+<h3>Welcome {{name}}</h3>
+
+</div>
+
+<section class="dashboard-main">
+
+<div class="map-container">
+
+<div class="map-title">
+<h3>Global Deepfake Threat Monitor</h3>
+</div>
+
+<div id="threat-map"></div>
+
+</div>
+
+<div class="side-widgets">
+
+<div class="widget">
+<h3>Total Scans</h3>
+<p id="scans">1287</p>
+</div>
+
+<div class="widget">
+<h3>Deepfakes Detected</h3>
+<p id="fakes">324</p>
+</div>
+
+<div class="widget">
+<h3>Suspicious Media</h3>
+<p id="sus">189</p>
+</div>
+
+<a href="/analyze" class="analyze-btn">Start Analyzing</a>
+
+</div>
+
+</section>
+
+<script src="/static/js/matrix.js"></script>
+
+<script>
+
+const activity = document.getElementById("activity")
+
+const messages = [
+
+"Scanning uploaded media...",
+"Analyzing GAN artifacts...",
+"Detecting neural patterns...",
+"Monitoring deepfake threats...",
+"AI engine processing..."
+
+]
+
+setInterval(()=>{
+
+activity.innerText = messages[Math.floor(Math.random()*messages.length)]
+
+},3000)
+
+</script>
+
+<script>
+
+var map = L.map('threat-map').setView([20,0],2);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    attribution:'DeepShield Threat Map'
+}).addTo(map);
+
+const locations = [
+
+[40.7128,-74.0060],
+[51.5074,-0.1278],
+[48.8566,2.3522],
+[35.6895,139.6917],
+[37.7749,-122.4194],
+[52.5200,13.4050],
+[1.2921,36.8219],
+[28.6139,77.2090],
+[-33.8688,151.2093],
+[55.7558,37.6173]
+
+];
+
+let scans = 1287
+let fakes = 324
+let suspicious = 189
+
+function simulateThreat(){
+
+const loc = locations[Math.floor(Math.random()*locations.length)]
+
+const marker = L.circleMarker(loc,{
+color:"#00ff1a",
+radius:6
+}).addTo(map)
+
+setTimeout(()=>{
+map.removeLayer(marker)
+},4000)
+
+/* update counters */
+
+scans += Math.floor(Math.random()*3)+1
+
+if(Math.random()>0.6){
+fakes++
+}
+
+if(Math.random()>0.7){
+suspicious++
+}
+
+document.getElementById("scans").innerText = scans
+document.getElementById("fakes").innerText = fakes
+document.getElementById("sus").innerText = suspicious
+
+}
+
+/* faster activity */
+
+setInterval(simulateThreat,900)
+
+</script>
+
+</body>
+</html>
