@@ -2,7 +2,7 @@ document.querySelectorAll(".delete-btn").forEach(btn => {
 
 btn.addEventListener("click", function(){
 
-const id = this.dataset.id
+const id = parseInt(this.dataset.id)
 
 fetch("/delete_upload",{
 method:"POST",
@@ -17,11 +17,16 @@ id:id
 .then(data=>{
 
 if(data.status==="deleted"){
-
-this.closest("tr").remove()
-
+    const row = this.closest("tr")
+    if(row) row.remove()
+}else{
+    alert("Delete failed")
 }
 
+})
+.catch(err=>{
+    console.error(err)
+    alert("Server error")
 })
 
 })

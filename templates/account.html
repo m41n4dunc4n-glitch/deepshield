@@ -12,7 +12,7 @@
 
 <nav class="navbar">
 
-<h1 class="logo">DeepShield</h1>
+<a href="/" class="logo">DeepShield</a>
 
 <div class="menu">
 <a href="/dashboard">Dashboard</a>
@@ -30,19 +30,12 @@
 
 <div class="avatar">
 
-{% if gender == "male" %}
-
-<img src="{{ url_for('static', filename='images/male_ava.png') }}">
-
-{% else %}
-
 <img src="{{ url_for('static', filename='images/' + avatar) }}">
-{% endif %}
 
 </div>
 
 <div class="profile-info">
-<p>{{name}} | {{gender}}</p>
+<p>{{ name }} | {{ gender if gender else "N/A" }}</p>
 <p>DeepShield User</p>
 </div>
 
@@ -60,17 +53,17 @@
 
 <div class="stat-box fake-stat">
 <h3>Fake Detected</h3>
-<p>{{ uploads | selectattr(3,'equalto','Fake') | list | length }}</p>
+<p>{{ fake_count }}</p>
 </div>
 
 <div class="stat-box real-stat">
 <h3>Real Media</h3>
-<p>{{ uploads | selectattr(3,'equalto','Real') | list | length }}</p>
+<p>{{ real_count }}</p>
 </div>
 
 <div class="stat-box suspicious-stat">
 <h3>Suspicious Media</h3>
-<p>{{ uploads | selectattr(3,'equalto','Suspicious') | list | length }}</p>
+<p>{{ suspicious_count }}</p>
 </div>
 
 </div>
@@ -105,33 +98,29 @@
 
 <tr>
 
-<td>{{u[0]}}</td>
+<td>{{ u["id"] }}</td>
 
-<td>{{u[1]}}</td>
+<td>{{ u["file_type"] }}</td>
 
-<td>{{u[2]}}</td>
+<td>{{ u["filename"] }}</td>
 
 <td class="
-{% if u[3] == 'Fake' %}fake
-{% elif u[3] == 'Real' %}real
+{% if u['result'] == 'Fake' %}fake
+{% elif u['result'] == 'Real' %}real
 {% else %}suspicious
 {% endif %}
 ">
-
-{{u[3]}}
-
+{{ u["result"] }}
 </td>
 
-<td>{{u[4]}}%</td>
+<td>{{ u["confidence"] }}%</td>
 
-<td>{{u[5]}}</td>
+<td>{{ u["date"] }}</td>
 
 <td>
-
-<button class="delete-btn" data-id="{{u[0]}}">
+<button class="delete-btn" data-id="{{ u['id'] }}">
 Delete
 </button>
-
 </td>
 
 </tr>

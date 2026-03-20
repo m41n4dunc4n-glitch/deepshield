@@ -1,205 +1,396 @@
-from flask import Flask, render_template, request, redirect, session, jsonify
+from flask import Flask, render_template, request, redirect, session, send_from_directory, jsonify
 import sqlite3
+from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import random
-from datetime import datetime
-from werkzeug.security import generate_password_hash, check_password_hash
-from transformers import pipeline
+import smtplib
+from datetime import datetime  # ✅ ADDED
+from email.mime.text import MIMEText
 
 app = Flask(__name__)
-app.secret_key = "deepshield_secret_key"
+app.secret_key = "super_secret_key"
 
-# Create main uploads folder and subfolders
+import os
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_NAME = os.path.join(BASE_DIR, "users.db")
 UPLOAD_FOLDER = "uploads"
-IMAGE_FOLDER = os.path.join(UPLOAD_FOLDER, "images")
-VIDEO_FOLDER = os.path.join(UPLOAD_FOLDER, "videos")
-AUDIO_FOLDER = os.path.join(UPLOAD_FOLDER, "audio")
-TEXT_FOLDER = os.path.join(UPLOAD_FOLDER, "text")
-for folder in [UPLOAD_FOLDER, IMAGE_FOLDER, VIDEO_FOLDER, AUDIO_FOLDER, TEXT_FOLDER]:
-    os.makedirs(folder, exist_ok=True)
 
-# AI Model (placeholder, you can extend for real detection)
-image_model = pipeline("image-classification", model="google/vit-base-patch16-224")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# ---------------- DATABASE ---------------- #
+# ---------------- EMAIL FUNCTION ----------------
+
+def send_verification_email(receiver_email, code):
+
+    sender_email = "ai.deepshield@gmail.com"
+    sender_password = "fluvltqjvwhiyxip"
+
+    subject = "DeepShield Verification Code"
+    body = f"Your DeepShield verification code is: {code}"
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = "DeepShield <ai.deepshield@gmail.com>"
+    msg["To"] = receiver_email
+
+    message = f"Subject: {subject}\n\n{body}"
+
+    server = smtplib.SMTP("smtp.gmail.com",587)
+    server.starttls()
+    server.login(sender_email, sender_password)
+    server.sendmail(sender_email, receiver_email, message)
+    server.quit()
+
+# ---------------- DATABASE ----------------
+
+def get_db():
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    return conn
+
 def init_db():
-    conn = sqlite3.connect("users.db")
+
+    conn = get_db()
     cur = conn.cursor()
-    # Add gender and avatar columns
+
     cur.execute("""
     CREATE TABLE IF NOT EXISTS users(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
-        email TEXT,
+        email TEXT UNIQUE,
         phone TEXT,
         gender TEXT,
         avatar TEXT,
         password TEXT
     )
     """)
+
+    # ✅ FIXED TABLE (ONLY ADDITIONS)
     cur.execute("""
     CREATE TABLE IF NOT EXISTS uploads(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
+        file_type TEXT,
         filename TEXT,
-        filetype TEXT,
-        media_type TEXT,
-        prediction TEXT,
-        confidence REAL,
-        timestamp TEXT
+        result TEXT,
+        confidence INTEGER,
+        date TEXT
     )
     """)
+
     conn.commit()
     conn.close()
 
 init_db()
 
-# ---------------- ROUTES ---------------- #
+# ---------------- ROUTES ----------------
 
 @app.route("/")
 def home():
     return render_template("home.html")
 
+# ---------------- SIGNUP ----------------
+
 @app.route("/signup", methods=["GET","POST"])
 def signup():
-    if request.method=="POST":
+
+    if request.method == "POST":
+
         name = request.form["name"]
         email = request.form["email"]
         phone = request.form["phone"]
         gender = request.form["gender"]
-        avatar = "male_ava.png" if gender=="Male" else "female_ava.png"
-        password = generate_password_hash(request.form["password"])
+        password = request.form["password"]
 
-        conn = sqlite3.connect("users.db")
-        cur = conn.cursor()
-        cur.execute("""
-        INSERT INTO users (name,email,phone,gender,avatar,password)
-        VALUES (?,?,?,?,?,?)
-        """,(name,email,phone,gender,avatar,password))
-        conn.commit()
-        conn.close()
-        return redirect("/login")
+        code = str(random.randint(100000,999999))
+
+        session["verify_code"] = code
+        session["signup_data"] = {
+            "name": name,
+            "email": email,
+            "phone": phone,
+            "gender": gender,
+            "password": password
+        }
+
+        send_verification_email(email, code)
+
+        return redirect("/verify")
+
     return render_template("signup.html")
+
+# ---------------- VERIFY ----------------
+
+@app.route("/verify", methods=["GET","POST"])
+def verify():
+
+    if request.method == "POST":
+
+        if request.form["code"] == session.get("verify_code"):
+
+            data = session.get("signup_data")
+
+            avatar = "male_ava.png" if data["gender"] == "Male" else "female_ava.png"
+
+            password = generate_password_hash(data["password"])
+
+            conn = get_db()
+            cur = conn.cursor()
+
+            cur.execute("""
+            INSERT INTO users (name,email,phone,gender,avatar,password)
+            VALUES (?,?,?,?,?,?)
+            """,(data["name"],data["email"],data["phone"],data["gender"],avatar,password))
+
+            conn.commit()
+            conn.close()
+
+            return redirect("/login")
+
+    return render_template("verify.html")
+
+# ---------------- LOGIN ----------------
 
 @app.route("/login", methods=["GET","POST"])
 def login():
-    if request.method=="POST":
+
+    if request.method == "POST":
+
         email = request.form["email"]
         password = request.form["password"]
-        conn = sqlite3.connect("users.db")
+
+        conn = get_db()
         cur = conn.cursor()
+
         cur.execute("SELECT * FROM users WHERE email=?", (email,))
         user = cur.fetchone()
+
         conn.close()
-        if user and check_password_hash(user[6], password):
-            session["user_id"]=user[0]
-            session["name"]=user[1]
-            session["avatar"]=user[5]
+
+        if user and check_password_hash(user["password"], password):
+
+            session["user_id"] = user["id"]
+            session["name"] = user["name"]
+            session["avatar"] = user["avatar"]
+            session["gender"] = user["gender"]
+
             return redirect("/dashboard")
-        else:
-            return render_template("login.html", error="Invalid login")
+
+        return "Invalid login"
+
     return render_template("login.html")
 
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect("/")
+# ---------------- DASHBOARD ----------------
 
 @app.route("/dashboard")
 def dashboard():
+
     if "user_id" not in session:
         return redirect("/login")
-    return render_template("dashboard.html", name=session["name"], avatar=session["avatar"])
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("SELECT COUNT(*) FROM uploads")
+    scans = cur.fetchone()[0]
+
+    conn.close()
+
+    return render_template(
+        "dashboard.html",
+        name=session["name"],
+        avatar=session["avatar"],
+        scans=scans
+    )
+
+# ---------------- ACCOUNT ----------------
+
+@app.route("/account")
+def account():
+
+    if "user_id" not in session:
+        return redirect("/login")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    cur.execute("""
+SELECT * FROM uploads 
+WHERE user_id=? 
+ORDER BY id DESC
+""", (session["user_id"],))    
+    
+    uploads = cur.fetchall()
+
+    conn.close()
+
+    # ✅ counts
+    fake_count = 0
+    real_count = 0
+    suspicious_count = 0
+
+    for u in uploads:
+        result = u["result"].lower()
+
+        if result == "fake":
+            fake_count += 1
+        elif result == "real":
+            real_count += 1
+        elif result == "suspicious":
+            suspicious_count += 1
+
+    return render_template(
+        "account.html",
+        uploads=uploads,
+        name=session["name"],
+        avatar=session["avatar"],
+        gender=session["gender"],
+        fake_count=fake_count,
+        real_count=real_count,
+        suspicious_count=suspicious_count
+    )
+# ---------------- ANALYZE ----------------
 
 @app.route("/analyze")
 def analyze():
+
     if "user_id" not in session:
         return redirect("/login")
+
     return render_template("analyze.html")
+
+# ---------------- DETECT ----------------
 
 @app.route("/detect", methods=["POST"])
 def detect():
-    if "user_id" not in session:
-        return jsonify({"error": "login required"})
 
-    media_type = request.form.get("type")
+    # -------- TEXT MODE --------
+    text = request.form.get("text")
 
-    # For text input
-    if media_type == "text":
-        text = request.form.get("text", "")
-        if not text.strip():
-            return jsonify({"error": "No text provided"})
-        # Mock detection score
-        score = random.randint(0, 100)
-        label = "Fake" if score <= 40 else "Suspicious" if score <= 70 else "Real"
-        filename = "text_submission.txt"
+    if text and text.strip() != "":
+
+        mode = random.choice(["Fake", "Suspicious", "Real"])
+
+        if mode == "Fake":
+            confidence = random.randint(0, 35)
+            label = "Fake"
+
+        elif mode == "Suspicious":
+            confidence = random.randint(36, 56)
+            label = "Suspicious"
+
+        else:
+            confidence = random.randint(57, 100)
+            label = "Real"
+
+        conn = get_db()
+        cur = conn.cursor()
+
+        date = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        cur.execute("""
+        INSERT INTO uploads (user_id, file_type, filename, result, confidence, date)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """, (
+            session["user_id"],
+            "text",
+            text[:20] + "...",
+            label,
+            confidence,
+            date
+        ))
+
+        conn.commit()
+        conn.close()
+
+        return jsonify({"label": label, "confidence": confidence})
+
+
+    # -------- FILE MODE --------
+    if "file" not in request.files:
+        return jsonify({"label": "No file", "confidence": 0})
+
+    file = request.files["file"]
+
+    if file.filename == "":
+        return jsonify({"label": "No file selected", "confidence": 0})
+
+
+    mode = random.choice(["Fake", "Suspicious", "Real"])
+
+    if mode == "Fake":
+        confidence = random.randint(0, 35)
+        label = "Fake"
+
+    elif mode == "Suspicious":
+        confidence = random.randint(36, 56)
+        label = "Suspicious"
 
     else:
-        # File input
-        file = request.files.get("file")
-        if not file:
-            return jsonify({"error": "No file uploaded"})
+        confidence = random.randint(57, 100)
+        label = "Real"
 
-        filename = file.filename
 
-        # Choose proper subfolder
-        if media_type == "image":
-            subfolder = "images"
-        elif media_type == "video":
-            subfolder = "videos"
-        elif media_type == "audio":
-            subfolder = "audio"
-        else:
-            return jsonify({"error": "Invalid media type"})
+    file_type = request.form.get("type") or "image"
 
-        folder_path = os.path.join(UPLOAD_FOLDER, subfolder)
-        os.makedirs(folder_path, exist_ok=True)
-        path = os.path.join(folder_path, filename)
-        file.save(path)
+    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(filepath)
 
-        # Mock detection
-        score = random.randint(0, 100)
-        label = "Fake" if score <= 40 else "Suspicious" if score <= 70 else "Real"
-
-    # Store in database
-    conn = sqlite3.connect("users.db")
+    conn = get_db()
     cur = conn.cursor()
+
+    date = datetime.now().strftime("%Y-%m-%d %H:%M")
+
     cur.execute("""
-        INSERT INTO uploads (user_id, filename, filetype, prediction, confidence, timestamp)
-        VALUES (?,?,?,?,?,?)
+    INSERT INTO uploads (user_id, file_type, filename, result, confidence, date)
+    VALUES (?, ?, ?, ?, ?, ?)
     """, (
         session["user_id"],
-        filename,
-        media_type,
+        file_type,
+        file.filename,
         label,
-        score,
-        datetime.now()
+        confidence,
+        date
     ))
+
     conn.commit()
     conn.close()
 
-    return jsonify({
-        "label": label,
-        "confidence": score
-    })
-@app.route("/account")
-def account():
+    return jsonify({"label": label, "confidence": confidence})
+
+# ---------------- DELETE ----------------
+
+@app.route("/delete_upload", methods=["POST"])
+def delete_upload():
+
     if "user_id" not in session:
-        return redirect("/login")
-    conn = sqlite3.connect("users.db")
+        return jsonify({"status":"error"})
+
+    data = request.get_json()
+    upload_id = data.get("id")
+
+    conn = get_db()
     cur = conn.cursor()
-    cur.execute("SELECT filename,filetype,media_type,prediction,confidence,timestamp FROM uploads WHERE user_id=? ORDER BY timestamp DESC",(session["user_id"],))
-    uploads = cur.fetchall()
+
+    cur.execute(
+    "DELETE FROM uploads WHERE id=? AND user_id=?",
+    (upload_id, session["user_id"])
+)
+
+    conn.commit()
     conn.close()
-    return render_template("account.html",uploads=uploads,name=session["name"],avatar=session.get("avatar"))
 
-@app.route("/media")
-def media():
-    return render_template("media.html")
+    return jsonify({"status":"deleted"})
 
-@app.route("/why")
-def why():
-    return render_template("why.html")
+    
+#-----------------logout-------------- 
+    
+@app.route("/logout")
+def logout():
+    session.clear()
+    return redirect("/login")
 
-if __name__=="__main__":
+# ---------------- RUN ----------------
+
+if __name__ == "__main__":
     app.run(debug=True)

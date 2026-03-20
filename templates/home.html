@@ -12,13 +12,17 @@
 
 <nav class="navbar">
 
-<h1 class="logo">DeepShield</h1>
+<a href="/" class="logo">DeepShield</a>
 
 <div class="menu">
 <a href="/dashboard">Dashboard</a>
 <a href="/analyze">Analyze</a>
 <a href="/account">Account</a>
-<a href="/login">LogIn</a>
+{% if session.get("user_id") %}
+    <a href="/logout">Logout</a>
+{% else %}
+    <a href="/login">Login</a>
+{% endif %}
 </div>
 
 </nav>

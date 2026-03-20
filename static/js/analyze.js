@@ -37,8 +37,8 @@ formats.innerText="(.mp3 .wav)"
 }
 
 if(t==="text"){
-msg.innerHTML="Paste text or upload document"
-formats.innerText=""
+msg.style.display="none"
+formats.style.display="none"
 text.style.display="block"
 }
 
@@ -77,31 +77,68 @@ const preview=document.getElementById("preview")
 
 status.innerText="Initializing neural network..."
 
-if(type !== "text" && preview){
-
-scan=document.createElement("div")
-scan.className="scan-line"
-
-preview.appendChild(scan)
-
+if(type !== "text" && preview.innerHTML !== ""){
+    scan=document.createElement("div")
+    scan.className="scan-line"
+    preview.appendChild(scan)
 }
 
 setTimeout(()=>{
-status.innerText="Scanning media artifacts..."
+    status.innerText="Scanning media artifacts..."
 },1500)
 
 setTimeout(()=>{
-status.innerText="Detecting GAN fingerprints..."
+    status.innerText="Detecting GAN fingerprints..."
 },3000)
 
-let fd=new FormData()
-
 const file=document.getElementById("file").files[0]
-const text=document.getElementById("textinput").value
+const textInput=document.getElementById("textinput")
+const text=textInput ? textInput.value : ""
 
-if(file) fd.append("file",file)
-if(text) fd.append("text",text)
 
+// ✅ TEXT MODE
+if(type === "text"){
+
+    if(!text || text.trim() === ""){
+        alert("Enter text")
+        return
+    }
+
+    setTimeout(()=>{
+
+       let fd = new FormData()
+fd.append("text", text)
+fd.append("type", "text")
+
+fetch("/detect",{
+    method:"POST",
+    body:fd
+})
+        .then(r=>r.json())
+        .then(d=>{
+
+            if(scan) scan.remove()
+
+            document.getElementById("label").innerText=d.label
+            document.getElementById("bar").style.width=d.confidence+"%"
+            status.innerText="Analysis Complete"
+
+        })
+
+    },4000)
+
+    return
+}
+
+
+// ✅ FILE MODE
+if(!file){
+    alert("Select a file first")
+    return
+}
+
+let fd=new FormData()
+fd.append("file",file)
 fd.append("type",type)
 
 setTimeout(()=>{
@@ -128,9 +165,13 @@ status.innerText="Analysis Complete"
 
 }
 
-
-
 const drop=document.getElementById("drop")
+
+drop.onclick = () => {
+    if(type !== "text"){
+        fileInput.click()
+    }
+}
 
 drop.addEventListener("dragover",e=>{
 e.preventDefault()
@@ -169,6 +210,12 @@ heat.appendChild(dot)
 
 }
 
-if(type==="text"){
-formats.innerText="(.txt .pdf .doc .docx)"
-}
+setInterval(() => {
+    const drop = document.getElementById("drop")
+
+    if(type === "text"){
+        drop.style.cursor = "default"
+    } else {
+        drop.style.cursor = "pointer"
+    }
+}, 100)
