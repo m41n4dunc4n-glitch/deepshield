@@ -20,23 +20,19 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ---------------- EMAIL FUNCTION ----------------
 
+import resend
+import os
+
+resend.api_key = os.environ.get("RESEND_API_KEY")
+
 def send_verification_email(receiver_email, code):
-    import os
-    import resend
-
-    resend.api_key = os.environ.get("RESEND_API_KEY")
-
-    if not resend.api_key:
-        print("RESEND API KEY MISSING ❌")
-        print("Verification code:", code)
-        return
 
     try:
         resend.Emails.send({
             "from": "DeepShield <onboarding@resend.dev>",
             "to": receiver_email,
             "subject": "DeepShield Verification Code",
-            "html": f"<p>Your DeepShield verification code is: <strong>{code}</strong></p>"
+            "html": f"<h2>Your DeepShield verification code is: {code}</h2>"
         })
 
         print("EMAIL SENT ✅")
