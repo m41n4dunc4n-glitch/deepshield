@@ -21,26 +21,33 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # ---------------- EMAIL FUNCTION ----------------
 
 def send_verification_email(receiver_email, code):
+    import os
+    import smtplib
+    from email.mime.text import MIMEText
 
-    sender_email = "ai.deepshield@gmail.com"
-    sender_password = "fluvltqjvwhiyxip"
+    sender_email = os.environ.get("EMAIL_USER")
+    sender_password = os.environ.get("EMAIL_PASS")
 
     subject = "DeepShield Verification Code"
     body = f"Your DeepShield verification code is: {code}"
 
     msg = MIMEText(body)
     msg["Subject"] = subject
-    msg["From"] = "DeepShield <ai.deepshield@gmail.com>"
+    msg["From"] = f"DeepShield <{sender_email}>"
     msg["To"] = receiver_email
 
-    message = f"Subject: {subject}\n\n{body}"
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
+        server.starttls()
+        server.login(sender_email, sender_password)
 
-    server = smtplib.SMTP("smtp.gmail.com",587)
-    server.starttls()
-    server.login(sender_email, sender_password)
-    server.sendmail(sender_email, receiver_email, message)
-    server.quit()
+        server.sendmail(sender_email, receiver_email, msg.as_string())
+        server.quit()
 
+        print("EMAIL SENT ✅")
+
+    except Exception as e:
+        print("EMAIL ERROR:", e)
 # ---------------- DATABASE ----------------
 
 def get_db():
