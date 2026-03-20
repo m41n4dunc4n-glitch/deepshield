@@ -28,6 +28,11 @@ def send_verification_email(receiver_email, code):
     sender_email = os.environ.get("EMAIL_USER")
     sender_password = os.environ.get("EMAIL_PASS")
 
+    if not sender_email or not sender_password:
+        print("EMAIL ENV VARIABLES MISSING ❌")
+        print("Verification code:", code)
+        return
+
     subject = "DeepShield Verification Code"
     body = f"Your DeepShield verification code is: {code}"
 
@@ -48,6 +53,8 @@ def send_verification_email(receiver_email, code):
 
     except Exception as e:
         print("EMAIL ERROR:", e)
+        print("Verification code:", code)
+
 # ---------------- DATABASE ----------------
 
 def get_db():
