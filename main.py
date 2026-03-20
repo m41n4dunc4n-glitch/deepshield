@@ -42,8 +42,7 @@ def send_verification_email(receiver_email, code):
     msg["To"] = receiver_email
 
     try:
-        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=10)
-        server.starttls()
+        server = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10)
         server.login(sender_email, sender_password)
 
         server.sendmail(sender_email, receiver_email, msg.as_string())
