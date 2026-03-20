@@ -2,8 +2,8 @@ from flask import Flask, render_template, request, redirect, session, send_from_
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
+import resend
 import random
-import smtplib
 from datetime import datetime  # ✅ ADDED
 from email.mime.text import MIMEText
 
@@ -22,31 +22,22 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def send_verification_email(receiver_email, code):
     import os
-    import smtplib
-    from email.mime.text import MIMEText
+    import resend
 
-    sender_email = os.environ.get("EMAIL_USER")
-    sender_password = os.environ.get("EMAIL_PASS")
+    resend.api_key = os.environ.get("RESEND_API_KEY")
 
-    if not sender_email or not sender_password:
-        print("EMAIL ENV VARIABLES MISSING ❌")
+    if not resend.api_key:
+        print("RESEND API KEY MISSING ❌")
         print("Verification code:", code)
         return
 
-    subject = "DeepShield Verification Code"
-    body = f"Your DeepShield verification code is: {code}"
-
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = f"DeepShield <{sender_email}>"
-    msg["To"] = receiver_email
-
     try:
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10)
-        server.login(sender_email, sender_password)
-
-        server.sendmail(sender_email, receiver_email, msg.as_string())
-        server.quit()
+        resend.Emails.send({
+            "from": "DeepShield <onboarding@resend.dev>",
+            "to": receiver_email,
+            "subject": "DeepShield Verification Code",
+            "html": f"<p>Your DeepShield verification code is: <strong>{code}</strong></p>"
+        })
 
         print("EMAIL SENT ✅")
 
