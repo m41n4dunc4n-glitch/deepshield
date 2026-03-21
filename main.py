@@ -148,6 +148,15 @@ def verify():
             conn = get_db()
             cur = conn.cursor()
 
+           # Check if email already exists
+            cur.execute("SELECT * FROM users WHERE email = ?", (data["email"],))
+            existing_user = cur.fetchone()
+
+            if existing_user:
+             return "Email already registered. Please login instead.", 400
+             return redirect("/login")
+
+# If not exists → insert
             cur.execute("""
             INSERT INTO users (name,email,phone,gender,avatar,password)
             VALUES (?,?,?,?,?,?)
