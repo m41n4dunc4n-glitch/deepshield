@@ -2,7 +2,11 @@ from flask import Flask, render_template, request, redirect, session, send_from_
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
-import resend
+from dotenv import load_dotenv
+load_dotenv()
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
+import os
 import random
 from datetime import datetime  # ✅ ADDED
 from email.mime.text import MIMEText
@@ -20,27 +24,39 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ---------------- EMAIL FUNCTION ----------------
 
-import resend
-import os
-
-resend.api_key = os.environ.get("RESEND_API_KEY")
-
 def send_verification_email(receiver_email, code):
-
     try:
-        resend.Emails.send({
-            "from": "DeepShield <onboarding@resend.dev>",
-            "to": receiver_email,
-            "subject": "DeepShield Verification Code",
-            "html": f"<h2>Your DeepShield verification code is: {code}</h2>"
-        })
+        # Configure API key
+        configuration = sib_api_v3_sdk.Configuration()
+        configuration.api_key['api-key'] = os.environ.get('BREVO_API_KEY')
 
-        print("EMAIL SENT ✅")
+        # Create API instance
+        api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
+            sib_api_v3_sdk.ApiClient(configuration)
+        )
 
-    except Exception as e:
-        print("EMAIL ERROR:", e)
-        print("Verification code:", code)
+        # Email content
+        send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+            to=[{"email": receiver_email}],
+            sender={
+                "name": "DeepShield",
+                "email": "ai.deepshield@gmail.com"  # MUST be verified in Brevo
+            },
+            subject="DeepShield Verification Code",
+            html_content=f"<h2>Your DeepShield verification code is: {code}</h2>"
+        )
 
+        # Send email
+        response = api_instance.send_transac_email(send_smtp_email)
+
+        if response:
+         print("EMAIL SENT ✅")
+        else:
+          print("EMAIL FAILED ❌")
+
+    except ApiException as e:
+     print("EMAIL ERROR ❌:", e)
+    print("⚠️ FALLBACK CODE (use this to login):", code)
 # ---------------- DATABASE ----------------
 
 def get_db():
