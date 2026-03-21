@@ -26,38 +26,32 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def send_verification_email(receiver_email, code):
     try:
-        # Configure API key
+        receiver_email = receiver_email.strip().lower()
+
         configuration = sib_api_v3_sdk.Configuration()
         configuration.api_key['api-key'] = os.environ.get('BREVO_API_KEY')
 
-        # Create API instance
         api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
             sib_api_v3_sdk.ApiClient(configuration)
         )
 
-        # Email content
         send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
             to=[{"email": receiver_email}],
             sender={
                 "name": "DeepShield",
-                "email": "ai.deepshield@gmail.com"  # MUST be verified in Brevo
+                "email": "ai.deepshield@gmail.com"
             },
             subject="DeepShield Verification Code",
             html_content=f"<h2>Your DeepShield verification code is: {code}</h2>"
         )
 
-        # Send email
-        response = api_instance.send_transac_email(send_smtp_email)
+        api_instance.send_transac_email(send_smtp_email)
+        print("EMAIL SENT ✅")
 
-        if response:
-         print("EMAIL SENT ✅")
-        else:
-          print("EMAIL FAILED ❌")
+    except Exception as e:
+        print("EMAIL ERROR ❌:", e)
+        print("⚠️ FALLBACK CODE:", code)
 
-    except ApiException as e:
-     print("EMAIL ERROR ❌:", e)
-    print("⚠️ FALLBACK CODE (use this to login):", code)
-    
 # ---------------- DATABASE ----------------
 
 def get_db():
