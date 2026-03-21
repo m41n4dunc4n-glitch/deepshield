@@ -57,6 +57,7 @@ def send_verification_email(receiver_email, code):
     except ApiException as e:
      print("EMAIL ERROR ❌:", e)
     print("⚠️ FALLBACK CODE (use this to login):", code)
+    
 # ---------------- DATABASE ----------------
 
 def get_db():
