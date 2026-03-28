@@ -1,221 +1,206 @@
-let type="image"
-let scan
+let type = "image"
+let scan = null
 
-const fileInput=document.getElementById("file")
-const preview=document.getElementById("preview")
+const fileInput = document.getElementById("file")
+const preview = document.getElementById("preview")
+const drop = document.getElementById("drop")
 
+const analyzeBtn = document.getElementById("analyzeBtn")
+const comingSoonText = document.getElementById("comingSoonText")
+
+// ---------------- TYPE SWITCH ----------------
 function selectType(t){
+    type = t
 
-type=t
+    const msg = document.getElementById("upload-message")
+    const formats = document.getElementById("formats")
+    const textBox = document.getElementById("text-mode")
 
-const msg=document.getElementById("upload-message")
-const formats=document.getElementById("formats")
-const text=document.getElementById("text-mode")
-const preview=document.getElementById("preview")
+    preview.innerHTML = ""
+    fileInput.value = ""
 
-preview.innerHTML=""
-document.getElementById("file").value=""
+    msg.style.display = "block"
+    formats.style.display = "block"
+    textBox.style.display = "none"
 
-msg.style.display="block"
-formats.style.display="block"
+    // TEXT MODE
+    if(t === "text"){
+        msg.style.display = "none"
+        formats.style.display = "none"
+        textBox.style.display = "block"
+    }
 
-text.style.display="none"
+    // IMAGE
+    else if(t === "image"){
+        msg.innerHTML = "Drag & Drop Image<br>or Click to Upload"
+        formats.innerText = "(.jpg .jpeg .png)"
+    }
 
-if(t==="image"){
-msg.innerHTML="Drag & Drop Image<br>or Click to Upload"
-formats.innerText="(.jpg .jpeg .png)"
+    // VIDEO
+    else if(t === "video"){
+        msg.innerHTML = "Drag & Drop Video<br>or Click to Upload"
+        formats.innerText = "(.mp4 .mov .avi)"
+    }
+
+    // AUDIO
+    else if(t === "audio"){
+        msg.innerHTML = "Drag & Drop Audio<br>or Click to Upload"
+        formats.innerText = "(.mp3 .wav)"
+    }
+
+    // 🔥 DISABLE BUTTON FOR VIDEO/AUDIO
+    if(t === "video" || t === "audio"){
+        analyzeBtn.disabled = true
+        comingSoonText.style.display = "block"
+    } else {
+        analyzeBtn.disabled = false
+        comingSoonText.style.display = "none"
+    }
 }
 
-if(t==="video"){
-msg.innerHTML="Drag & Drop Video<br>or Click to Upload"
-formats.innerText="(.mp4 .mov .avi)"
-}
+// ---------------- FILE PREVIEW ----------------
+fileInput.addEventListener("change", function(){
 
-if(t==="audio"){
-msg.innerHTML="Drag & Drop Audio<br>or Click to Upload"
-formats.innerText="(.mp3 .wav)"
-}
+    const file = this.files[0]
+    if(!file) return
 
-if(t==="text"){
-msg.style.display="none"
-formats.style.display="none"
-text.style.display="block"
-}
+    const url = URL.createObjectURL(file)
 
-}
+    preview.innerHTML = ""
 
-fileInput.addEventListener("change",function(){
+    document.getElementById("upload-message").style.display = "none"
+    document.getElementById("formats").style.display = "none"
 
-const file=this.files[0]
-if(!file) return
+    if(type === "image"){
+        preview.innerHTML = `<img src="${url}" class="media-preview">`
+    }
 
-const url=URL.createObjectURL(file)
+    if(type === "video"){
+        preview.innerHTML = `<video src="${url}" controls class="media-preview"></video>`
+    }
 
-preview.innerHTML=""
-
-document.getElementById("upload-message").style.display="none"
-document.getElementById("formats").style.display="none"
-
-if(type==="image"){
-preview.innerHTML=`<img src="${url}" class="media-preview">`
-}
-
-if(type==="video"){
-preview.innerHTML=`<video src="${url}" controls class="media-preview"></video>`
-}
-
-if(type==="audio"){
-preview.innerHTML=`<audio src="${url}" controls class="media-preview"></audio>`
-}
-
+    if(type === "audio"){
+        preview.innerHTML = `<audio src="${url}" controls class="media-preview"></audio>`
+    }
 })
 
+// ---------------- ANALYZE ----------------
 function analyze(){
 
-const status=document.getElementById("status")
-const preview=document.getElementById("preview")
+    const status = document.getElementById("status")
 
-status.innerText="Initializing neural network..."
-
-if(type !== "text" && preview.innerHTML !== ""){
-    scan=document.createElement("div")
-    scan.className="scan-line"
-    preview.appendChild(scan)
-}
-
-setTimeout(()=>{
-    status.innerText="Scanning media artifacts..."
-},1500)
-
-setTimeout(()=>{
-    status.innerText="Detecting GAN fingerprints..."
-},3000)
-
-const file=document.getElementById("file").files[0]
-const textInput=document.getElementById("textinput")
-const text=textInput ? textInput.value : ""
-
-
-// ✅ TEXT MODE
-if(type === "text"){
-
-    if(!text || text.trim() === ""){
-        alert("Enter text")
+    // 🚫 BLOCK VIDEO/AUDIO
+    if(type === "video" || type === "audio"){
         return
     }
 
+    status.innerText = "Initializing neural network..."
+
+    if(type !== "text" && preview.innerHTML !== ""){
+        scan = document.createElement("div")
+        scan.className = "scan-line"
+        preview.appendChild(scan)
+    }
+
+    setTimeout(()=> status.innerText = "Scanning media artifacts...",1500)
+    setTimeout(()=> status.innerText = "Detecting GAN fingerprints...",3000)
+
+    const file = fileInput.files[0]
+    const textInput = document.getElementById("textinput")
+    const text = textInput ? textInput.value : ""
+
+    // -------- TEXT MODE --------
+    if(type === "text"){
+
+        if(!text || text.trim() === ""){
+            alert("Enter text")
+            return
+        }
+
+        setTimeout(()=>{
+
+            let fd = new FormData()
+            fd.append("text", text)
+            fd.append("type", "text")
+
+            fetch("/detect",{ method:"POST", body:fd })
+            .then(r=>r.json())
+            .then(d=>{
+
+                if(scan) scan.remove()
+
+                document.getElementById("label").innerText = d.label
+                document.getElementById("bar").style.width = d.confidence + "%"
+                status.innerText = "Analysis Complete"
+            })
+
+        },4000)
+
+        return
+    }
+
+    // -------- FILE MODE --------
+    if(!file){
+        alert("Select a file first")
+        return
+    }
+
+    let fd = new FormData()
+    fd.append("file", file)
+    fd.append("type", type)
+
     setTimeout(()=>{
 
-       let fd = new FormData()
-fd.append("text", text)
-fd.append("type", "text")
-
-fetch("/detect",{
-    method:"POST",
-    body:fd
-})
+        fetch("/detect",{ method:"POST", body:fd })
         .then(r=>r.json())
         .then(d=>{
 
             if(scan) scan.remove()
 
-            document.getElementById("label").innerText=d.label
-            document.getElementById("bar").style.width=d.confidence+"%"
-            status.innerText="Analysis Complete"
+            if(type === "image"){
+                showHeatmap()
+            }
 
+            document.getElementById("label").innerText = d.label
+            document.getElementById("bar").style.width = d.confidence + "%"
+            status.innerText = "Analysis Complete"
         })
 
     },4000)
-
-    return
 }
 
-
-// ✅ FILE MODE
-if(!file){
-    alert("Select a file first")
-    return
-}
-
-let fd=new FormData()
-fd.append("file",file)
-fd.append("type",type)
-
-setTimeout(()=>{
-
-fetch("/detect",{method:"POST",body:fd})
-.then(r=>r.json())
-.then(d=>{
-
-if(scan){
-scan.remove()
-}
-
-if(type==="image"){
-showHeatmap()
-}
-
-document.getElementById("label").innerText=d.label
-document.getElementById("bar").style.width=d.confidence+"%"
-status.innerText="Analysis Complete"
-
-})
-
-},4000)
-
-}
-
-const drop=document.getElementById("drop")
-
+// ---------------- DRAG & DROP FIX ----------------
 drop.onclick = () => {
     if(type !== "text"){
         fileInput.click()
     }
 }
 
-drop.addEventListener("dragover",e=>{
-e.preventDefault()
+drop.addEventListener("dragover", (e)=>{
+    e.preventDefault()
 })
 
-drop.addEventListener("drop",e=>{
+drop.addEventListener("drop", (e)=>{
+    e.preventDefault()
 
-e.preventDefault()
-
-const files=e.dataTransfer.files
-
-fileInput.files=files
-
-fileInput.dispatchEvent(new Event("change"))
-
+    const files = e.dataTransfer.files
+    if(files.length > 0){
+        fileInput.files = files
+        fileInput.dispatchEvent(new Event("change"))
+    }
 })
 
+// ---------------- HEATMAP ----------------
 function showHeatmap(){
 
-const heat=document.getElementById("heatmap")
+    const heat = document.getElementById("heatmap")
+    heat.innerHTML = ""
 
-heat.innerHTML=""
-
-for(let i=0;i<4;i++){
-
-const dot=document.createElement("div")
-
-dot.className="heatspot"
-
-dot.style.top=(20+Math.random()*60)+"%"
-dot.style.left=(20+Math.random()*60)+"%"
-
-heat.appendChild(dot)
-
-}
-
-}
-
-setInterval(() => {
-    const drop = document.getElementById("drop")
-
-    if(type === "text"){
-        drop.style.cursor = "default"
-    } else {
-        drop.style.cursor = "pointer"
+    for(let i=0;i<4;i++){
+        const dot = document.createElement("div")
+        dot.className = "heatspot"
+        dot.style.top = (20 + Math.random()*60) + "%"
+        dot.style.left = (20 + Math.random()*60) + "%"
+        heat.appendChild(dot)
     }
-}, 100)
+}

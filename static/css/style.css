@@ -1325,3 +1325,9 @@ display:block;
 .logo:hover {
     text-decoration: none;
 }
+
+.analyze-btn:disabled {
+    background: gray;
+    cursor: not-allowed;
+    opacity: 0.6;
+}

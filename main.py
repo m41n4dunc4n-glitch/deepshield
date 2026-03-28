@@ -1,8 +1,17 @@
-from flask import Flask, render_template, request, redirect, session, send_from_directory, jsonify
+from flask import (
+    Flask,
+    render_template,
+    request,
+    redirect,
+    session,
+    send_from_directory,
+    jsonify,
+)
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from dotenv import load_dotenv
+
 load_dotenv()
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
@@ -11,10 +20,28 @@ import random
 from datetime import datetime  # ✅ ADDED
 from email.mime.text import MIMEText
 
+
 app = Flask(__name__)
 app.secret_key = "super_secret_key"
 
 import os
+
+from transformers import pipeline
+
+image_model = pipeline(
+    "image-classification", model="dima806/deepfake_vs_real_image_detection"
+)
+
+from transformers import pipeline
+
+nlp_model = pipeline(
+    "text-classification", model="mrm8488/bert-tiny-finetuned-fake-news-detection"
+)
+
+import joblib
+
+model = joblib.load("text_model.pkl")
+vectorizer = joblib.load("vectorizer.pkl")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_NAME = os.path.join(BASE_DIR, "users.db")
@@ -24,12 +51,13 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ---------------- EMAIL FUNCTION ----------------
 
+
 def send_verification_email(receiver_email, code):
     try:
         receiver_email = receiver_email.strip().lower()
 
         configuration = sib_api_v3_sdk.Configuration()
-        configuration.api_key['api-key'] = os.environ.get('BREVO_API_KEY')
+        configuration.api_key["api-key"] = os.environ.get("BREVO_API_KEY")
 
         api_instance = sib_api_v3_sdk.TransactionalEmailsApi(
             sib_api_v3_sdk.ApiClient(configuration)
@@ -37,12 +65,9 @@ def send_verification_email(receiver_email, code):
 
         send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
             to=[{"email": receiver_email}],
-            sender={
-                "name": "DeepShield",
-                "email": "ai.deepshield@gmail.com"
-            },
+            sender={"name": "DeepShield", "email": "ai.deepshield@gmail.com"},
             subject="DeepShield Verification Code",
-            html_content=f"<h2>Your DeepShield verification code is: {code}</h2>"
+            html_content=f"<h2>Your DeepShield verification code is: {code}</h2>",
         )
 
         api_instance.send_transac_email(send_smtp_email)
@@ -52,19 +77,23 @@ def send_verification_email(receiver_email, code):
         print("EMAIL ERROR ❌:", e)
         print("⚠️ FALLBACK CODE:", code)
 
+
 # ---------------- DATABASE ----------------
+
 
 def get_db():
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     return conn
 
+
 def init_db():
 
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("""
+    cur.execute(
+        """
     CREATE TABLE IF NOT EXISTS users(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT,
@@ -74,10 +103,12 @@ def init_db():
         avatar TEXT,
         password TEXT
     )
-    """)
+    """
+    )
 
     # ✅ FIXED TABLE (ONLY ADDITIONS)
-    cur.execute("""
+    cur.execute(
+        """
     CREATE TABLE IF NOT EXISTS uploads(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         user_id INTEGER,
@@ -87,22 +118,27 @@ def init_db():
         confidence INTEGER,
         date TEXT
     )
-    """)
+    """
+    )
 
     conn.commit()
     conn.close()
+
 
 init_db()
 
 # ---------------- ROUTES ----------------
 
+
 @app.route("/")
 def home():
     return render_template("home.html")
 
+
 # ---------------- SIGNUP ----------------
 
-@app.route("/signup", methods=["GET","POST"])
+
+@app.route("/signup", methods=["GET", "POST"])
 def signup():
 
     if request.method == "POST":
@@ -113,7 +149,7 @@ def signup():
         gender = request.form["gender"]
         password = request.form["password"]
 
-        code = str(random.randint(100000,999999))
+        code = str(random.randint(100000, 999999))
 
         session["verify_code"] = code
         session["signup_data"] = {
@@ -121,7 +157,7 @@ def signup():
             "email": email,
             "phone": phone,
             "gender": gender,
-            "password": password
+            "password": password,
         }
 
         send_verification_email(email, code)
@@ -130,9 +166,11 @@ def signup():
 
     return render_template("signup.html")
 
+
 # ---------------- VERIFY ----------------
 
-@app.route("/verify", methods=["GET","POST"])
+
+@app.route("/verify", methods=["GET", "POST"])
 def verify():
 
     if request.method == "POST":
@@ -148,19 +186,29 @@ def verify():
             conn = get_db()
             cur = conn.cursor()
 
-           # Check if email already exists
+            # Check if email already exists
             cur.execute("SELECT * FROM users WHERE email = ?", (data["email"],))
             existing_user = cur.fetchone()
 
             if existing_user:
-             return "Email already registered. Please login instead.", 400
-             return redirect("/login")
+                return "Email already registered. Please login instead.", 400
+                return redirect("/login")
 
-# If not exists → insert
-            cur.execute("""
+            # If not exists → insert
+            cur.execute(
+                """
             INSERT INTO users (name,email,phone,gender,avatar,password)
             VALUES (?,?,?,?,?,?)
-            """,(data["name"],data["email"],data["phone"],data["gender"],avatar,password))
+            """,
+                (
+                    data["name"],
+                    data["email"],
+                    data["phone"],
+                    data["gender"],
+                    avatar,
+                    password,
+                ),
+            )
 
             conn.commit()
             conn.close()
@@ -169,9 +217,11 @@ def verify():
 
     return render_template("verify.html")
 
+
 # ---------------- LOGIN ----------------
 
-@app.route("/login", methods=["GET","POST"])
+
+@app.route("/login", methods=["GET", "POST"])
 def login():
 
     if request.method == "POST":
@@ -200,7 +250,9 @@ def login():
 
     return render_template("login.html")
 
+
 # ---------------- DASHBOARD ----------------
+
 
 @app.route("/dashboard")
 def dashboard():
@@ -217,13 +269,12 @@ def dashboard():
     conn.close()
 
     return render_template(
-        "dashboard.html",
-        name=session["name"],
-        avatar=session["avatar"],
-        scans=scans
+        "dashboard.html", name=session["name"], avatar=session["avatar"], scans=scans
     )
 
+
 # ---------------- ACCOUNT ----------------
+
 
 @app.route("/account")
 def account():
@@ -234,12 +285,15 @@ def account():
     conn = get_db()
     cur = conn.cursor()
 
-    cur.execute("""
+    cur.execute(
+        """
 SELECT * FROM uploads 
 WHERE user_id=? 
 ORDER BY id DESC
-""", (session["user_id"],))    
-    
+""",
+        (session["user_id"],),
+    )
+
     uploads = cur.fetchall()
 
     conn.close()
@@ -267,9 +321,12 @@ ORDER BY id DESC
         gender=session["gender"],
         fake_count=fake_count,
         real_count=real_count,
-        suspicious_count=suspicious_count
+        suspicious_count=suspicious_count,
     )
+
+
 # ---------------- ANALYZE ----------------
+
 
 @app.route("/analyze")
 def analyze():
@@ -279,8 +336,8 @@ def analyze():
 
     return render_template("analyze.html")
 
-# ---------------- DETECT ----------------
 
+# ---------------- DETECT ----------------
 @app.route("/detect", methods=["POST"])
 def detect():
 
@@ -288,43 +345,94 @@ def detect():
     text = request.form.get("text")
 
     if text and text.strip() != "":
+        try:
+            # 🔹 BASIC CLEANING
+            lower_text = text.lower()
 
-        mode = random.choice(["Fake", "Suspicious", "Real"])
+            # 🔹 RULE 1: gibberish / too short
+            if len(lower_text) < 5 or lower_text.isdigit():
+                label = "Suspicious"
+                confidence = 50
 
-        if mode == "Fake":
-            confidence = random.randint(0, 35)
-            label = "Fake"
+            # 🔹 RULE 2: scam keyword scoring
+            scam_keywords = [
+                "win",
+                "free",
+                "money",
+                "click",
+                "offer",
+                "urgent",
+                "prize",
+                "lottery",
+                "rich",
+                "scam",
+                "earn",
+                "cash",
+                "bonus",
+                "guarantee",
+                "investment",
+                "double",
+                "profit",
+                "limited",
+                "act now",
+                "quick",
+                "instant",
+            ]
 
-        elif mode == "Suspicious":
-            confidence = random.randint(36, 56)
+            matches = sum(word in lower_text.split() for word in scam_keywords)
+
+            if matches >= 2:
+                label = "Fake"
+                confidence = 85
+
+            elif matches == 1:
+                label = "Suspicious"
+                confidence = 60
+
+            # 🔹 RULE 3: very short messages
+            elif len(lower_text.split()) <= 3:
+                label = "Suspicious"
+                confidence = 55
+
+            # 🔹 OTHERWISE → USE AI MODEL
+            else:
+                result = nlp_model(text)[0]
+
+                confidence = int(result["score"] * 100)
+                raw_label = result["label"]
+
+                if raw_label.lower() == "fake":
+                    label = "Fake"
+                else:
+                    label = "Real"
+
+                if confidence < 60:
+                    label = "Suspicious"
+
+                print("AI RESULT:", result)
+
+        except Exception as e:
+            print("AI Error:", e)
             label = "Suspicious"
-
-        else:
-            confidence = random.randint(57, 100)
-            label = "Real"
+            confidence = 50
 
         conn = get_db()
         cur = conn.cursor()
 
         date = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        cur.execute("""
-        INSERT INTO uploads (user_id, file_type, filename, result, confidence, date)
-        VALUES (?, ?, ?, ?, ?, ?)
-        """, (
-            session["user_id"],
-            "text",
-            text[:20] + "...",
-            label,
-            confidence,
-            date
-        ))
+        cur.execute(
+            """
+            INSERT INTO uploads (user_id, file_type, filename, result, confidence, date)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (session["user_id"], "text", text[:20] + "...", label, confidence, date),
+        )
 
         conn.commit()
         conn.close()
 
         return jsonify({"label": label, "confidence": confidence})
-
 
     # -------- FILE MODE --------
     if "file" not in request.files:
@@ -335,56 +443,76 @@ def detect():
     if file.filename == "":
         return jsonify({"label": "No file selected", "confidence": 0})
 
+    filename = file.filename.lower()
 
-    mode = random.choice(["Fake", "Suspicious", "Real"])
+    # 🔹 HANDLE VIDEO
+    if filename.endswith((".mp4", ".avi", ".mov")):
+        return jsonify({"label": "Coming Soon", "confidence": 0})
 
-    if mode == "Fake":
-        confidence = random.randint(0, 35)
-        label = "Fake"
+    # 🔹 HANDLE AUDIO
+    if filename.endswith((".mp3", ".wav", ".aac")):
+        return jsonify({"label": "Coming Soon", "confidence": 0})
 
-    elif mode == "Suspicious":
-        confidence = random.randint(36, 56)
-        label = "Suspicious"
-
-    else:
-        confidence = random.randint(57, 100)
-        label = "Real"
-
-
+    # 🔹 IMAGE PROCESSING
     file_type = request.form.get("type") or "image"
 
     filepath = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(filepath)
+
+    try:
+        result = image_model(filepath)[0]
+
+        confidence = int(result["score"] * 100)
+        ai_label = result["label"].lower()
+
+        # 🔹 INTERPRET RESULT
+        if "fake" in ai_label:
+            label = "Fake"
+
+        elif "real" in ai_label:
+            label = "Real"
+
+        else:
+            label = "Suspicious"
+
+        # confidence safety layer
+        if confidence < 60:
+            label = "Suspicious"
+
+        print("IMAGE AI:", result)
+
+    except Exception as e:
+        print("Image AI Error:", e)
+        label = "Suspicious"
+        confidence = 50
 
     conn = get_db()
     cur = conn.cursor()
 
     date = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-    cur.execute("""
-    INSERT INTO uploads (user_id, file_type, filename, result, confidence, date)
-    VALUES (?, ?, ?, ?, ?, ?)
-    """, (
-        session["user_id"],
-        file_type,
-        file.filename,
-        label,
-        confidence,
-        date
-    ))
+    cur.execute(
+        """
+        INSERT INTO uploads (user_id, file_type, filename, result, confidence, date)
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (session["user_id"], file_type, file.filename, label, confidence, date),
+    )
 
     conn.commit()
     conn.close()
 
     return jsonify({"label": label, "confidence": confidence})
 
+
 # ---------------- DELETE ----------------
+
 
 @app.route("/delete_upload", methods=["POST"])
 def delete_upload():
 
     if "user_id" not in session:
-        return jsonify({"status":"error"})
+        return jsonify({"status": "error"})
 
     data = request.get_json()
     upload_id = data.get("id")
@@ -393,22 +521,23 @@ def delete_upload():
     cur = conn.cursor()
 
     cur.execute(
-    "DELETE FROM uploads WHERE id=? AND user_id=?",
-    (upload_id, session["user_id"])
-)
+        "DELETE FROM uploads WHERE id=? AND user_id=?", (upload_id, session["user_id"])
+    )
 
     conn.commit()
     conn.close()
 
-    return jsonify({"status":"deleted"})
+    return jsonify({"status": "deleted"})
 
-    
-#-----------------logout-------------- 
-    
+
+# -----------------logout--------------
+
+
 @app.route("/logout")
 def logout():
     session.clear()
     return redirect("/login")
+
 
 # ---------------- RUN ----------------
 
