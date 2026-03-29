@@ -29,7 +29,10 @@ import os
 import requests
 
 HF_API_URL = "https://api-inference.huggingface.co/models/dima806/deepfake_vs_real_image_detection"
-HF_HEADERS = {"Authorization": f"Bearer {os.getenv('HF_TOKEN')}"}
+HF_HEADERS = {
+    "Authorization": f"Bearer {os.getenv('HF_TOKEN')}",
+    "Content-Type": "application/octet-stream",
+}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_NAME = os.path.join(BASE_DIR, "users.db")
@@ -435,15 +438,33 @@ def detect():
     filepath = os.path.join(UPLOAD_FOLDER, file.filename)
     file.save(filepath)
 
+    import time
+
     try:
-        with open(filepath, "rb") as f:
-            response = requests.post(
-                HF_API_URL, headers=HF_HEADERS, data=f.read(), timeout=30
-            )
+        response = None
+
+        # 🔁 RETRY LOGIC (clean)
+        for attempt in range(3):
+            try:
+                with open(filepath, "rb") as f:
+                    response = requests.post(
+                        HF_API_URL, headers=HF_HEADERS, data=f.read(), timeout=30
+                    )
+
+                print(f"✅ HF success on attempt {attempt+1}")
+                break
+
+            except Exception as e:
+                print(f"❌ Retry {attempt+1} failed:", e)
+                time.sleep(2)
+
+        # ❌ ALL FAILED
+        if response is None:
+            return jsonify({"label": "AI Error", "confidence": 0})
 
         data = response.json()
 
-        # 🔥 HANDLE BAD RESPONSE
+        # 🔥 HANDLE HF ERROR RESPONSE
         if isinstance(data, dict) and "error" in data:
             print("HF ERROR:", data)
             label = "Suspicious"

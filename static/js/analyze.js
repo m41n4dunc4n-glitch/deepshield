@@ -119,22 +119,39 @@ function analyze(){
 
         setTimeout(()=>{
 
-            let fd = new FormData()
-            fd.append("text", text)
-            fd.append("type", "text")
+    const labelBox = document.getElementById("label")
 
-            fetch("/detect",{ method:"POST", body:fd })
-            .then(r=>r.json())
-            .then(d=>{
+    // 🔁 Show analyzing state
+    labelBox.innerText = "Analyzing..."
 
-                if(scan) scan.remove()
+    fetch("/detect", { method:"POST", body:fd })
+    .then(r=>r.json())
+    .then(d=>{
 
-                document.getElementById("label").innerText = d.label
-                document.getElementById("bar").style.width = d.confidence + "%"
-                status.innerText = "Analysis Complete"
-            })
+        if(scan) scan.remove()
 
-        },4000)
+        if(type === "image"){
+            showHeatmap()
+        }
+
+        let msg = `${d.label} (${d.confidence}%)`
+
+        // 🔁 Show retry info if backend sends it
+        if(d.retries && d.retries > 0){
+            msg += ` ⚠️ Retried ${d.retries}x`
+        }
+
+        labelBox.innerText = msg
+        document.getElementById("bar").style.width = d.confidence + "%"
+
+        status.innerText = "Analysis Complete"
+    })
+    .catch(err=>{
+        labelBox.innerText = "Error analyzing file"
+        status.innerText = "Failed"
+    })
+
+},4000)
 
         return
     }
