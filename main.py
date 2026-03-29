@@ -437,39 +437,42 @@ def detect():
 
     try:
         with open(filepath, "rb") as f:
-            response = requests.post(HF_API_URL, headers=HF_HEADERS, data=f.read())
+            response = requests.post(
+                HF_API_URL, headers=HF_HEADERS, data=f.read(), timeout=30
+            )
 
-        result = response.json()[0]
+        data = response.json()
 
-        if "error" in response.json():
-            print("HF ERROR:", response.json())
+        # 🔥 HANDLE BAD RESPONSE
+        if isinstance(data, dict) and "error" in data:
+            print("HF ERROR:", data)
             label = "Suspicious"
             confidence = 50
 
-        confidence = int(result["score"] * 100)
-        ai_label = result["label"].lower()
-
-        # 🔹 INTERPRET RESULT
-        if "fake" in ai_label:
-            label = "Fake"
-
-        elif "real" in ai_label:
-            label = "Real"
-
         else:
-            label = "Suspicious"
+            result = data[0]
 
-        # confidence safety layer
-        if confidence < 60:
-            label = "Suspicious"
+            confidence = int(result["score"] * 100)
+            ai_label = result["label"].lower()
 
-        print("IMAGE AI:", result)
+            if "fake" in ai_label:
+                label = "Fake"
+            elif "real" in ai_label:
+                label = "Real"
+            else:
+                label = "Suspicious"
+
+            # safety threshold
+            if confidence < 60:
+                label = "Suspicious"
+
+            print("IMAGE AI:", result)
 
     except Exception as e:
         print("Image AI Error:", e)
-        label = "Suspicious"
-        confidence = 50
+        return jsonify({"label": "Unknown", "confidence": 0})
 
+    # 🔹 SAVE TO DB
     conn = get_db()
     cur = conn.cursor()
 
