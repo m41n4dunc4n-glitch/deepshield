@@ -9,6 +9,4 @@ flask
 sib-api-v3-sdk
 python-dotenv
 werkzeug
-transformers
-torch
-huggingface_hub
+requests

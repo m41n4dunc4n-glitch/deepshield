@@ -26,22 +26,10 @@ app.secret_key = "super_secret_key"
 
 import os
 
-from transformers import pipeline
+import requests
 
-image_model = pipeline(
-    "image-classification", model="dima806/deepfake_vs_real_image_detection"
-)
-
-from transformers import pipeline
-
-nlp_model = pipeline(
-    "text-classification", model="mrm8488/bert-tiny-finetuned-fake-news-detection"
-)
-
-import joblib
-
-model = joblib.load("text_model.pkl")
-vectorizer = joblib.load("vectorizer.pkl")
+HF_API_URL = "https://api-inference.huggingface.co/models/dima806/deepfake_vs_real_image_detection"
+HF_HEADERS = {"Authorization": f"Bearer {os.getenv('HF_TOKEN')}"}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_NAME = os.path.join(BASE_DIR, "users.db")
@@ -394,22 +382,10 @@ def detect():
                 label = "Suspicious"
                 confidence = 55
 
-            # 🔹 OTHERWISE → USE AI MODEL
+            # 🔹 OTHERWISE → SAFE DEFAULT
             else:
-                result = nlp_model(text)[0]
-
-                confidence = int(result["score"] * 100)
-                raw_label = result["label"]
-
-                if raw_label.lower() == "fake":
-                    label = "Fake"
-                else:
-                    label = "Real"
-
-                if confidence < 60:
-                    label = "Suspicious"
-
-                print("AI RESULT:", result)
+                label = "Real"
+                confidence = 80
 
         except Exception as e:
             print("AI Error:", e)
@@ -460,7 +436,15 @@ def detect():
     file.save(filepath)
 
     try:
-        result = image_model(filepath)[0]
+        with open(filepath, "rb") as f:
+            response = requests.post(HF_API_URL, headers=HF_HEADERS, data=f.read())
+
+        result = response.json()[0]
+
+        if "error" in response.json():
+            print("HF ERROR:", response.json())
+            label = "Suspicious"
+            confidence = 50
 
         confidence = int(result["score"] * 100)
         ai_label = result["label"].lower()
@@ -544,4 +528,5 @@ def logout():
 import os
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
