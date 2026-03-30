@@ -48,7 +48,7 @@ function selectType(t){
         formats.innerText = "(.mp3 .wav)"
     }
 
-    // 🔥 DISABLE BUTTON FOR VIDEO/AUDIO
+    // DISABLE BUTTON FOR VIDEO/AUDIO
     if(t === "video" || t === "audio"){
         analyzeBtn.disabled = true
         comingSoonText.style.display = "block"
@@ -89,7 +89,7 @@ function analyze(){
 
     const status = document.getElementById("status")
 
-    // 🚫 BLOCK VIDEO/AUDIO
+    // BLOCK VIDEO/AUDIO
     if(type === "video" || type === "audio"){
         return
     }
@@ -109,52 +109,47 @@ function analyze(){
     const textInput = document.getElementById("textinput")
     const text = textInput ? textInput.value : ""
 
-    // -------- TEXT MODE --------
-    if(type === "text"){
+// -------- TEXT MODE --------
+if(type === "text"){
 
-        if(!text || text.trim() === ""){
-            alert("Enter text")
-            return
-        }
+    if(!text || text.trim() === ""){
+        alert("Enter text")
+        return
+    }
 
-        setTimeout(()=>{
+    setTimeout(()=>{
 
     const labelBox = document.getElementById("label")
-
-    // 🔁 Show analyzing state
     labelBox.innerText = "Analyzing..."
 
-    fetch("/detect", { method:"POST", body:fd })
-    .then(r=>r.json())
-    .then(d=>{
+    let fd = new FormData()   
+    fd.append("text", text)   
+
+    fetch("/detect", {
+        method: "POST",
+        body: fd
+    })
+    .then(r => r.json())
+    .then(d => {
 
         if(scan) scan.remove()
 
-        if(type === "image"){
-            showHeatmap()
-        }
-
-        let msg = `${d.label} (${d.confidence}%)`
-
-        // 🔁 Show retry info if backend sends it
-        if(d.retries && d.retries > 0){
-            msg += ` ⚠️ Retried ${d.retries}x`
-        }
-
+        let msg = `${d.label}`
         labelBox.innerText = msg
         document.getElementById("bar").style.width = d.confidence + "%"
 
         status.innerText = "Analysis Complete"
     })
-    .catch(err=>{
-        labelBox.innerText = "Error analyzing file"
+    .catch(err => {
+        console.error(err)
+        labelBox.innerText = "Error analyzing text"
         status.innerText = "Failed"
     })
 
 },4000)
 
-        return
-    }
+    return
+}
 
     // -------- FILE MODE --------
     if(!file){

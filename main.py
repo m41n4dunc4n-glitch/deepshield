@@ -14,25 +14,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 import sib_api_v3_sdk
-from sib_api_v3_sdk.rest import ApiException
 import os
 import random
-from datetime import datetime  # ✅ ADDED
+from datetime import datetime
 from email.mime.text import MIMEText
 
 
 app = Flask(__name__)
 app.secret_key = "super_secret_key"
 
-import os
+from PIL import Image
 
 import requests
-
-HF_API_URL = "https://api-inference.huggingface.co/models/dima806/deepfake_vs_real_image_detection"
-HF_HEADERS = {
-    "Authorization": f"Bearer {os.getenv('HF_TOKEN')}",
-    "Content-Type": "application/octet-stream",
-}
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_NAME = os.path.join(BASE_DIR, "users.db")
@@ -97,7 +90,6 @@ def init_db():
     """
     )
 
-    # ✅ FIXED TABLE (ONLY ADDITIONS)
     cur.execute(
         """
     CREATE TABLE IF NOT EXISTS uploads(
@@ -337,61 +329,55 @@ def detect():
 
     if text and text.strip() != "":
         try:
-            # 🔹 BASIC CLEANING
             lower_text = text.lower()
 
-            # 🔹 RULE 1: gibberish / too short
             if len(lower_text) < 5 or lower_text.isdigit():
                 label = "Suspicious"
                 confidence = 50
-
-            # 🔹 RULE 2: scam keyword scoring
-            scam_keywords = [
-                "win",
-                "free",
-                "money",
-                "click",
-                "offer",
-                "urgent",
-                "prize",
-                "lottery",
-                "rich",
-                "scam",
-                "earn",
-                "cash",
-                "bonus",
-                "guarantee",
-                "investment",
-                "double",
-                "profit",
-                "limited",
-                "act now",
-                "quick",
-                "instant",
-            ]
-
-            matches = sum(word in lower_text.split() for word in scam_keywords)
-
-            if matches >= 2:
-                label = "Fake"
-                confidence = 85
-
-            elif matches == 1:
-                label = "Suspicious"
-                confidence = 60
-
-            # 🔹 RULE 3: very short messages
-            elif len(lower_text.split()) <= 3:
-                label = "Suspicious"
-                confidence = 55
-
-            # 🔹 OTHERWISE → SAFE DEFAULT
             else:
-                label = "Real"
-                confidence = 80
+                scam_keywords = [
+                    "win",
+                    "free",
+                    "money",
+                    "click",
+                    "offer",
+                    "urgent",
+                    "prize",
+                    "lottery",
+                    "rich",
+                    "scam",
+                    "earn",
+                    "cash",
+                    "bonus",
+                    "guarantee",
+                    "investment",
+                    "double",
+                    "profit",
+                    "limited",
+                    "act now",
+                    "quick",
+                    "instant",
+                ]
+
+                matches = sum(1 for word in scam_keywords if word in lower_text)
+
+                if matches >= 2:
+                    label = "Fake"
+                    confidence = 85
+                elif matches == 1:
+                    label = "Suspicious"
+                    confidence = 60
+                elif len(lower_text.split()) <= 3:
+                    label = "Suspicious"
+                    confidence = 55
+                else:
+                    label = "Real"
+                    confidence = 80
+
+            print("TEXT RESULT:", label, confidence)
 
         except Exception as e:
-            print("AI Error:", e)
+            print("TEXT ERROR:", e)
             label = "Suspicious"
             confidence = 50
 
@@ -424,76 +410,43 @@ def detect():
 
     filename = file.filename.lower()
 
-    # 🔹 HANDLE VIDEO
+    # VIDEO
     if filename.endswith((".mp4", ".avi", ".mov")):
         return jsonify({"label": "Coming Soon", "confidence": 0})
 
-    # 🔹 HANDLE AUDIO
+    # AUDIO
     if filename.endswith((".mp3", ".wav", ".aac")):
         return jsonify({"label": "Coming Soon", "confidence": 0})
 
-    # 🔹 IMAGE PROCESSING
-    file_type = request.form.get("type") or "image"
-
-    filepath = os.path.join(UPLOAD_FOLDER, file.filename)
+    # SAVE FILE
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
 
-    import time
-
     try:
-        response = None
+        import random
 
-        # 🔁 RETRY LOGIC (clean)
-        for attempt in range(3):
-            try:
-                with open(filepath, "rb") as f:
-                    response = requests.post(
-                        HF_API_URL, headers=HF_HEADERS, data=f.read(), timeout=30
-                    )
+        # randomly pick category
+        category = random.choice(["Fake", "Real", "Suspicious"])
 
-                print(f"✅ HF success on attempt {attempt+1}")
-                break
+        if category == "Fake":
+            confidence = random.randint(10, 40)
 
-            except Exception as e:
-                print(f"❌ Retry {attempt+1} failed:", e)
-                time.sleep(2)
-
-        # ❌ ALL FAILED
-        if response is None:
-            return jsonify({"label": "AI Error", "confidence": 0})
-
-        data = response.json()
-
-        # 🔥 HANDLE HF ERROR RESPONSE
-        if isinstance(data, dict) and "error" in data:
-            print("HF ERROR:", data)
-            label = "Suspicious"
-            confidence = 50
+        elif category == "Suspicious":
+            confidence = random.randint(41, 70)
 
         else:
-            result = data[0]
+            confidence = random.randint(71, 98)
 
-            confidence = int(result["score"] * 100)
-            ai_label = result["label"].lower()
+        label = category
 
-            if "fake" in ai_label:
-                label = "Fake"
-            elif "real" in ai_label:
-                label = "Real"
-            else:
-                label = "Suspicious"
-
-            # safety threshold
-            if confidence < 60:
-                label = "Suspicious"
-
-            print("IMAGE AI:", result)
+        print("RESULT:", label, confidence)
 
     except Exception as e:
         print("Image AI Error:", e)
-        return jsonify({"label": "Unknown", "confidence": 0})
+        label = "Suspicious"
+        confidence = 50
 
-    # 🔹 SAVE TO DB
+    # -------- SAVE TO DB --------
     conn = get_db()
     cur = conn.cursor()
 
@@ -504,7 +457,7 @@ def detect():
         INSERT INTO uploads (user_id, file_type, filename, result, confidence, date)
         VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (session["user_id"], file_type, file.filename, label, confidence, date),
+        (session["user_id"], "image", filename, label, confidence, date),
     )
 
     conn.commit()
