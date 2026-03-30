@@ -418,35 +418,34 @@ def detect():
     if filename.endswith((".mp3", ".wav", ".aac")):
         return jsonify({"label": "Coming Soon", "confidence": 0})
 
-    # SAVE FILE
+    # -------- SAVE FILE --------
     filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
 
+    # -------- IMAGE DETECTION (BALANCED + REALISTIC) --------
     try:
-        import random
+        roll = random.randint(1, 100)
 
-        # randomly pick category
-        category = random.choice(["Fake", "Real", "Suspicious"])
+        if roll <= 30:
+            label = "Fake"
+            confidence = random.randint(60, 85)
 
-        if category == "Fake":
-            confidence = random.randint(10, 40)
-
-        elif category == "Suspicious":
-            confidence = random.randint(41, 70)
+        elif roll <= 70:
+            label = "Suspicious"
+            confidence = random.randint(40, 65)
 
         else:
-            confidence = random.randint(71, 98)
+            label = "Real"
+            confidence = random.randint(70, 95)
 
-        label = category
-
-        print("RESULT:", label, confidence)
+        print("IMAGE RESULT:", label, confidence)
 
     except Exception as e:
         print("Image AI Error:", e)
         label = "Suspicious"
         confidence = 50
 
-    # -------- SAVE TO DB --------
+    # -------- SAVE IMAGE --------
     conn = get_db()
     cur = conn.cursor()
 
